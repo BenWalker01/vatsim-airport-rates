@@ -8,8 +8,10 @@ class Airport:
 		self.elevation = elevation
 		self.icao = icao
 
+airport = [(50.074935640323474, 8.44810178631773),(49.97464929980614, 8.48257453416403),(49.9961902982015, 8.664163374453615),(50.08132315919908, 8.631389988683265)]
 
-airport = [(51.13719270370898, -0.21951900613886854),(51.141721140088784, -0.14012682199274115),(51.1792900203234, -0.153118270307562),(51.16897294200857, -0.22919041766212397)]
+#EGKK
+#airport = [(51.13719270370898, -0.21951900613886854),(51.141721140088784, -0.14012682199274115),(51.1792900203234, -0.153118270307562),(51.16897294200857, -0.22919041766212397)]
 #EGPH
 #airport = [(55.971760870855405, -3.3355042299469266),(55.93283621469401, -3.3263203472236804),(55.934951645546896, -3.3925816353185465),(55.96210544001433, -3.406829529098473)]
 #EGCC
@@ -53,7 +55,7 @@ while True:
 			rules = plan.get('flight_rules')
 		if lat is not None and lon is not None and rules is not None and dep is not None:
 			point = Point(lat, lon)
-		if airport_poly.contains(point) and alt < 300 and dep == "EGKK" and rules == "I":
+		if airport_poly.contains(point) and alt < 500 and dep == "EDDF" and rules == "I":
 			currently_on_ground.add(callsign)
 			print(f"Pilot {callsign} is within the airport polygon.")
 
