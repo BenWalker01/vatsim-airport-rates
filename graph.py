@@ -35,7 +35,8 @@ plt.xlabel('Time')
 plt.ylabel('Rates')
 plt.title('Arrival Rates Over Time')
 plt.legend()
-plt.show()
 
+
+plt.savefig('arrival_rates.png')
 # Remove the temporary file
 os.remove('rates_copy.csv')
