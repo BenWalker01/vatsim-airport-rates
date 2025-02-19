@@ -20,13 +20,11 @@ def main(inputName):
     dep_rates = dep_rates.split(",")[1:]
     hour_rates = hour_rates.split(",")[1:]
         
-    # Filter out empty strings and convert timestamps to datetime objects
     timestamps = [float(ts) for ts in timestamps if ts]
 
-    start_time = timestamps[0]
-    timestamps = [ts - start_time for ts in timestamps]
+    # Convert timestamps to datetime objects
+    timestamps = [datetime.fromtimestamp(ts) for ts in timestamps]
 
-    # Convert dep_rates and hour_rates to float, filtering out empty strings
     dep_rates = [int(float(rate)) for rate in dep_rates if rate]
     hour_rates = [int(rate) for rate in hour_rates if rate]
 
@@ -39,13 +37,15 @@ def main(inputName):
     plt.title('Arrival Rates Over Time')
     plt.legend()
 
+    # Format the x-axis to show time
+    plt.gca().xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%H:%M'))
 
     plt.savefig(f'{inputName[:-4]}.png')
     # Remove the temporary file
     os.remove(f'{inputName[:-4]}_copy.csv')
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print("Usage: python3 graph.py <name of csv>")
         sys.exit(1)
 
