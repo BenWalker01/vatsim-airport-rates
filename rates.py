@@ -4,6 +4,8 @@ import time
 from shapely.geometry import Point, Polygon
 import os
 import threading
+import logging
+import sys
 
 url = "https://data.vatsim.net/v3/vatsim-data.json"  # regenerates every 15s
 
@@ -33,7 +35,13 @@ class Airport:
         with open(self.filename, "w") as f:
             f.write(f"0,\n0,\n0,")
 
-    def get_pilots(self):
+        if os.path.exists(f"{self.icao}_log.txt"):
+            os.remove(f"{self.icao}_log.txt")
+
+        logging.basicConfig(
+            filename=f"{self.icao}_log.txt", level=logging.INFO)
+
+    def get_pilots(self):  # TODO Make this global??
         response = requests.request(
             "GET", url, headers=headers, data=payload)
 
@@ -55,11 +63,12 @@ class Airport:
                 if plan:
                     dep = plan.get('departure', None)
                     rules = plan.get('flight_rules', None)
+
                     if lat and lon and rules == "I" and dep == self.icao:
                         point = Point(lat, lon)
-                        if self.boundary.contains(point) and alt < self.elevation:
+                        if self.boundary.contains(point) and alt < self.elevation + 200:
                             currently_on_ground.add(callsign)
-                            print(
+                            logging.info(
                                 f"Pilot {callsign} is on the ground at {self.icao}")
 
             for cs in self.on_ground:
@@ -70,7 +79,8 @@ class Airport:
                             departure_time = time.time()
                             self.departed.add((cs, departure_time))
                             self.hour_track.add((cs, departure_time))
-                            print(f"{callsign} has departed from {self.icao}")
+                            logging.info(
+                                f"{callsign} has departed from {self.icao}")
                             break
 
             self.on_ground = currently_on_ground
@@ -80,8 +90,9 @@ class Airport:
                 (plane, tot) for plane, tot in self.hour_track if time.time() - tot <= HOUR}
 
             estimated_rate = len(self.departed) * (HOUR / self.rolling_rate)
-            print(f"{self.icao} estimated departure rate: {estimated_rate} per hour")
-            print(
+            logging.info(
+                f"{self.icao} estimated departure rate: {estimated_rate} per hour")
+            logging.info(
                 f"{self.icao} Current actual departure rate {len(self.hour_track)} per hour")
 
             with open(self.filename, "r")as f:
@@ -96,7 +107,7 @@ class Airport:
                 f.write(lines)
 
             diff = time.time() - start
-            print(f"{self.icao} loop took {diff}s")
+            logging.info(f"{self.icao} loop took {diff}s")
             time.sleep(max(15-diff, 0))
 
 
@@ -114,11 +125,16 @@ if __name__ == "__main__":
         airport = input("Enter airport ICAO to track\n> ")
 
         if airport.lower() in ["exit", "stop", "quit"]:
+            os.system('cls' if os.name == 'nt' else 'clear')
+            print(f"Stopping processes:")
             for runningThread, activeAirport in tracking.values():
+                print(f"Stopping {activeAirport.icao}")
                 activeAirport.stop = True
                 runningThread.join()
+                print(f"Stopped {activeAirport.icao}")
+            sys.exit(0)
 
-        if airport.upper() in tracking:
+        elif airport.upper() in tracking:
             tracking[airport.upper()][1].stop = True
             tracking[airport.upper()][0].join()
             tracking.pop(airport.upper())
@@ -134,7 +150,7 @@ if __name__ == "__main__":
             thread.start()
 
             tracking[airport.upper()] = (thread, airport_tracker)
-            print(f"Now tracking {airport}")
+            print(f"Now tracking {airport.upper()}")
 
         else:
             print("That airport is not in the datafile")
