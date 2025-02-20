@@ -27,7 +27,7 @@ class Airport:
         self.rolling_rate = 15
         self.rolling_rate *= 60
 
-        self.filename = f"{time.time()}_{self.icao}_departure_rate.csv"
+        self.filename = f"{time.strftime('%Y%m%d_%H%M%S')}_{self.icao}_departure_rate.csv"
         self.stop = False
 
         with open(self.filename, "w") as f:
@@ -112,6 +112,12 @@ if __name__ == "__main__":
         if tracking:
             print(f"Tracking {', '.join(list(tracking))}")
         airport = input("Enter airport ICAO to track\n> ")
+
+        if airport.lower() in ["exit", "stop", "quit"]:
+            for runningThread, activeAirport in tracking.values():
+                activeAirport.stop = True
+                runningThread.join()
+
         if airport.upper() in tracking:
             tracking[airport.upper()][1].stop = True
             tracking[airport.upper()][0].join()
