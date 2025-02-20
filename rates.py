@@ -35,11 +35,11 @@ class Airport:
         with open(self.filename, "w") as f:
             f.write(f"0,\n0,\n0,")
 
-        if os.path.exists(f"{self.icao}_log.txt"):
-            os.remove(f"{self.icao}_log.txt")
+        if os.path.exists(f"{self.icao}.log"):
+            os.remove(f"{self.icao}.log")
 
         logging.basicConfig(
-            filename=f"{self.icao}_log.txt", level=logging.INFO)
+            filename=f"{self.icao}.log", level=logging.INFO)
 
     def get_pilots(self):  # TODO Make this global??
         response = requests.request(
