@@ -6,6 +6,7 @@ import os
 import threading
 import logging
 import sys
+import math
 
 url = "https://data.vatsim.net/v3/vatsim-data.json"  # regenerates every 15s
 
@@ -17,23 +18,57 @@ headers = {
 HOUR = 3600
 
 
+# from https://rosettacode.org/wiki/Haversine_formula#Python
+def haversine(lat1, lon1, lat2, lon2):
+    """Returns distance between to points
+
+    Args:
+        lat1 (float):
+        lon1 (float):
+        lat2 (float):
+        lon2 (float):
+
+    Returns:
+        float: Distance between 2 points in KM
+    """
+    R = 6372.8  # Earth radius in kilometers
+
+    dLat = math.radians(lat2 - lat1)
+    dLon = math.radians(lon2 - lon1)
+    lat1 = math.radians(lat1)
+    lat2 = math.radians(lat2)
+
+    a = math.sin(dLat / 2)**2 + math.cos(lat1) * \
+        math.cos(lat2) * math.sin(dLon / 2)**2
+    c = 2 * math.asin(math.sqrt(a))
+
+    return R * c
+
+
 class Airport:
     def __init__(self, boundary, elevation, icao):
         self.boundary = Polygon(boundary)
         self.elevation = elevation
         self.icao = icao
+        minx, miny, maxx, maxy = self.boundary.bounds
+        self.midpoint = Point(
+            ((minx + maxx) / 2, (miny + maxy) / 2))
+
         self.on_ground = set()
         self.departed = set()
-        self.hour_track = set()
-        self.global_start = time.time()
-        self.rolling_rate = 15
-        self.rolling_rate *= 60
+        self.dep_hour_track = set()
 
-        self.filename = f"{self.icao}_departure_rate_{time.strftime('%H%M%S_%Y%m%d')}.csv"
+        self.on_approach = set()
+        self.arrived = set()
+        self.arr_hour_track = set()
+
+        self.rolling_rate = 15 * 60  # 15 mins
+
+        self.filename = f"{self.icao}_{time.strftime('%H%M%S_%Y%m%d')}_rates.csv"
         self.stop = False
 
         with open(self.filename, "w") as f:
-            f.write(f"0,\n0,\n0,")
+            f.write(f"0,\n0,\n0,\n0,\n0,")
 
         if os.path.exists(f"{self.icao}.log"):
             os.remove(f"{self.icao}.log")
@@ -52,6 +87,7 @@ class Airport:
             start = time.time()
             data = self.get_pilots()
             currently_on_ground = set()
+            currently_on_approach = set()
 
             for pilot in data:
                 callsign = pilot.get('callsign')
@@ -62,14 +98,21 @@ class Airport:
 
                 if plan:
                     dep = plan.get('departure', None)
+                    arr = plan.get('arrival', None)
                     rules = plan.get('flight_rules', None)
 
-                    if lat and lon and rules == "I" and dep == self.icao:
+                    if lat and lon and rules == "I":
                         point = Point(lat, lon)
-                        if self.boundary.contains(point) and alt < self.elevation + 200:
+
+                        if self.boundary.contains(point) and alt < self.elevation + 200 and dep == self.icao:
                             currently_on_ground.add(callsign)
                             logging.info(
                                 f"Pilot {callsign} is on the ground at {self.icao}")
+
+                        elif haversine(point.x, point.y, self.midpoint.x, self.midpoint.y) <= 50 and arr == self.icao and not self.boundary.contains(point) and alt > self.elevation + 200:
+                            currently_on_approach.add(callsign)
+                            logging.info(
+                                f"Pilot {callsign} is within 50 KM of {self.icao}")
 
             for cs in self.on_ground:
                 if cs not in currently_on_ground:  # i.e they left
@@ -78,7 +121,7 @@ class Airport:
                         if callsign == cs:  # still connected
                             departure_time = time.time()
                             self.departed.add((cs, departure_time))
-                            self.hour_track.add((cs, departure_time))
+                            self.dep_hour_track.add((cs, departure_time))
                             logging.info(
                                 f"{callsign} has departed from {self.icao}")
                             break
@@ -86,22 +129,50 @@ class Airport:
             self.on_ground = currently_on_ground
             self.departed = {(plane, tot) for plane, tot in self.departed if time.time(
             ) - tot <= self.rolling_rate}
-            self.hour_track = {
-                (plane, tot) for plane, tot in self.hour_track if time.time() - tot <= HOUR}
+            self.dep_hour_track = {
+                (plane, tot) for plane, tot in self.dep_hour_track if time.time() - tot <= HOUR}
 
-            estimated_rate = len(self.departed) * (HOUR / self.rolling_rate)
+            for cs in self.on_approach:
+                if cs not in currently_on_approach:
+                    for pilot in data:
+                        callsign = pilot.get('callsign', None)
+                        if callsign == cs:
+                            arrival_time = time.time()
+                            self.arrived.add((cs, arrival_time))
+                            self.arr_hour_track.add((cs, arrival_time))
+                            logging.info(
+                                f"{callsign} has arrived at {self.icao}")
+                            break
+
+            self.on_approach = currently_on_approach
+            self.arrived = {(plane, tot) for plane, tot in self.arrived if time.time(
+            ) - tot <= self.rolling_rate}
+            self.arr_hour_track = {
+                (plane, tot) for plane, tot, in self.arr_hour_track if time.time() - tot <= HOUR}
+
+            estimated_departure_rate = len(
+                self.departed) * (HOUR / self.rolling_rate)
+            estimated_arrival_rate = len(
+                self.arrived) * (HOUR / self.rolling_rate)
+
             logging.info(
-                f"{self.icao} estimated departure rate: {estimated_rate} per hour")
+                f"{self.icao} estimated departure rate: {estimated_departure_rate} per hour")
             logging.info(
-                f"{self.icao} Current actual departure rate {len(self.hour_track)} per hour")
+                f"{self.icao} Current actual departure rate {len(self.dep_hour_track)} per hour")
+            logging.info(
+                f"{self.icao} estimated arrival rate: {estimated_arrival_rate} per hour")
+            logging.info(
+                f"{self.icao} Current actual arrival rate {len(self.arr_hour_track)} per hour")
 
             with open(self.filename, "r")as f:
-                timestamps, dep_rates, hour_rates = f.read().splitlines()
+                timestamps, rolling_dep_rate, actual_dep_rate, rolling_arr_rate, actual_arr_rate = f.read().splitlines()
                 timestamps += f"{int(time.time())},"
-                dep_rates += f"{estimated_rate},"
-                hour_rates += f"{len(self.hour_track)},"
+                rolling_dep_rate += f"{estimated_departure_rate},"
+                actual_dep_rate += f"{len(self.dep_hour_track)},"
+                rolling_arr_rate += f"{estimated_arrival_rate},"
+                actual_arr_rate += f"{len(self.arr_hour_track)},"
 
-                lines = f"{timestamps}\n{dep_rates}\n{hour_rates}"
+                lines = f"{timestamps}\n{rolling_dep_rate}\n{actual_dep_rate}\n{rolling_arr_rate}\n{actual_arr_rate}"
 
             with open(self.filename, "w")as f:
                 f.write(lines)
