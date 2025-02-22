@@ -29,7 +29,7 @@ class Airport:
         self.rolling_rate = 15
         self.rolling_rate *= 60
 
-        self.filename = f"{time.strftime('%Y%m%d_%H%M%S')}_{self.icao}_departure_rate.csv"
+        self.filename = f"{self.icao}_departure_rate_{time.strftime('%H%M%S_%Y%m%d')}.csv"
         self.stop = False
 
         with open(self.filename, "w") as f:
