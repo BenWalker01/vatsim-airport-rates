@@ -8,12 +8,12 @@ import logging
 import sys
 import math
 
-url = "https://data.vatsim.net/v3/vatsim-data.json"  # regenerates every 15s
+# url = "https://data.vatsim.net/v3/vatsim-data.json"  # regenerates every 15s
 
-payload = {}
-headers = {
-    'Accept': 'application/json'
-}
+# payload = {}
+# headers = {
+#     'Accept': 'application/json'
+# }
 
 HOUR = 3600
 
