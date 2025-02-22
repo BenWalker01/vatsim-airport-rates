@@ -6,7 +6,7 @@ Simple tool to measure the arrival and departure rates at airports on vatsim.
 
 Run `rates.py`
 
-When prompted enter the ICAO of the airports you want to track
+When prompted enter the ICAO of the airport you want to track (you can only type on at a time, altho there is no limit to how many you can be tracking simultaneously.
 ```
 Enter airport ICAO to track
 > 
