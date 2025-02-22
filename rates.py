@@ -45,8 +45,33 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c
 
 
+class VatsimApiClient:
+    def __init__(self, url=None, headers=None, payload=None):
+        self.url = url if url else "https://data.vatsim.net/v3/vatsim-data.json"
+        self.headers = headers if headers else {'Accept': 'application/json'}
+        self.payload = payload if payload else {}
+
+        self.pilots = {}
+        self.stop = False
+        self.thread = threading.Thread(target=self.update_pilots)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def update_pilots(self):
+        while not self.stop:
+            self.get_pilots()
+            time.sleep(15)
+
+    def get_pilots(self):
+        response = requests.request(
+            "GET", self.url, headers=self.headers, data=self.payload)
+        self.pilots = response.json().get('pilots', {})
+
+
 class Airport:
-    def __init__(self, boundary, elevation, icao):
+    def __init__(self, boundary, elevation, icao, api_client):
+        self.api_client = api_client
+
         self.boundary = Polygon(boundary)
         self.elevation = elevation
         self.icao = icao
@@ -76,11 +101,8 @@ class Airport:
         logging.basicConfig(
             filename=f"{self.icao}.log", level=logging.INFO)
 
-    def get_pilots(self):  # TODO Make this global??
-        response = requests.request(
-            "GET", url, headers=headers, data=payload)
-
-        return response.json().get('pilots', [])
+    def get_pilots(self):
+        return self.api_client.pilots
 
     def process_data(self):
         while not self.stop:
@@ -190,6 +212,8 @@ if __name__ == "__main__":
 
     os.system('cls' if os.name == 'nt' else 'clear')
 
+    api_client = VatsimApiClient()
+
     while True:
         if tracking:
             print(f"Tracking {', '.join(list(tracking))}")
@@ -203,6 +227,9 @@ if __name__ == "__main__":
                 activeAirport.stop = True
                 runningThread.join()
                 print(f"Stopped {activeAirport.icao}")
+            print(f"Stopping api client")
+            api_client.stop = True
+            api_client.thread.join()
             sys.exit(0)
 
         elif airport.upper() in tracking:
@@ -214,7 +241,7 @@ if __name__ == "__main__":
         elif airport.upper() in airport_data.keys():
             bbox = airport_data.get(airport.upper()).get('boundingBox')
             elev = airport_data.get(airport.upper()).get('elevation')
-            airport_tracker = Airport(bbox, elev, airport.upper())
+            airport_tracker = Airport(bbox, elev, airport.upper(), api_client)
 
             thread = threading.Thread(target=airport_tracker.process_data)
             thread.daemon = True
