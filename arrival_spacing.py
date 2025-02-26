@@ -1,9 +1,13 @@
-import requests, math, json
+import requests
+import math
+import json
 from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 
 # from https://rosettacode.org/wiki/Haversine_formula#Python
+
+
 def haversine(lat1, lon1, lat2, lon2):
     """Returns distance between to points
 
@@ -30,13 +34,15 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c * 0.539957
 
 
-response = requests.get("https://statsim.net/flights/airport/?icao=egss&period=custom&from=2025-02-22+18%3A00&to=2025-02-22+21%3A30&json=true").json()
+response = requests.get(
+    "https://statsim.net/flights/airport/?icao=egss&period=custom&from=2025-02-22+18%3A00&to=2025-02-22+21%3A30&json=true").json()
 
 arrivals = response.get('arrived', {})
 
 sorted_arrivals = sorted(arrivals, key=lambda x: x['arrived'])
 
-callsign_id_arrivals = [(flight.get('callsign'), flight.get('id'), flight.get('arrived')) for flight in sorted_arrivals]
+callsign_id_arrivals = [(flight.get('callsign'), flight.get(
+    'id'), flight.get('arrived')) for flight in sorted_arrivals]
 
 spacing = []
 
@@ -46,8 +52,10 @@ with open('boundingBoxes.json') as f:
 
 for i, data in enumerate(callsign_id_arrivals[:-1]):
     callsign, id_, arrival_time = data
-    print(f"{callsign} landed, the next plane is {callsign_id_arrivals[i+1][0]}, with id {callsign_id_arrivals[i+1][1]}")
-    next_track = requests.get(f"https://statsim.net/flights/flight/?flightid={callsign_id_arrivals[i+1][1]}&json=true").json().get('points', {})
+    print(
+        f"{callsign} landed, the next plane is {callsign_id_arrivals[i+1][0]}, with id {callsign_id_arrivals[i+1][1]}")
+    next_track = requests.get(
+        f"https://statsim.net/flights/flight/?flightid={callsign_id_arrivals[i+1][1]}&json=true").json().get('points', {})
 
     point_before_arrival = None
     point_after_arrival = None
@@ -73,13 +81,16 @@ for i, data in enumerate(callsign_id_arrivals[:-1]):
             'speed': point_before_arrival['speed'] + factor * (point_after_arrival['speed'] - point_before_arrival['speed'])
         }
 
-        print(f"Interpolated point at arrival time {arrival_time}: {interpolated_point}")
+        print(
+            f"Interpolated point at arrival time {arrival_time}: {interpolated_point}")
 
-        dist = haversine(threshold[0], threshold[1], interpolated_point['latitude'], interpolated_point['longitude'])
+        dist = haversine(
+            threshold[0], threshold[1], interpolated_point['latitude'], interpolated_point['longitude'])
         spacing.append(dist)
         print(f"{callsign} had {dist}NM behind at touchdown")
 
-timestamps = [datetime.fromtimestamp(float(ts)) for _, _, ts in callsign_id_arrivals]
+timestamps = [datetime.fromtimestamp(float(ts))
+              for _, _, ts in callsign_id_arrivals]
 callsigns = [cs for cs, _, _ in callsign_id_arrivals]
 
 print(len(spacing))
@@ -87,13 +98,16 @@ print(len(callsigns[:-1]))
 
 # Calculate the moving average
 window_size = 5
-moving_avg = np.convolve(spacing, np.ones(window_size)/window_size, mode='valid')
-
-plt.figure(figsize=(10, 5))
-plt.plot(timestamps[:-1], spacing, label="Final approach spacing")
-plt.plot(timestamps[window_size-1:-1], moving_avg, label="Trend (Moving Average)", linestyle='--')
+moving_avg = np.convolve(spacing, np.ones(
+    window_size)/window_size, mode='valid')
+plt.figure(figsize=(12, 6))
+plt.bar(callsigns[:-1], spacing, label="Final approach spacing")
+plt.plot(callsigns[window_size-1:-1], moving_avg,
+         label="Trend (Moving Average)", color='orange', linestyle='--')
 plt.xlabel('Time')
 plt.ylabel('Miles in Trail')
 plt.title('Arrival Spacing')
 plt.legend()
+plt.xticks(rotation=90)
+plt.gcf().subplots_adjust(bottom=0.3)
 plt.savefig(f'arrival_spacing.png')
