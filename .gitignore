@@ -2,3 +2,4 @@
 *.png
 venv/
 *.log
+*.txt
