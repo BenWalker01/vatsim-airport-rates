@@ -42,7 +42,7 @@ response = requests.get(
 
 arrivals = response.get('arrived', {})
 
-sorted_arrivals = sorted(arrivals, key=lambda x: x['arrived'])
+sorted_arrivals = sorted(arrivals, key=lambda x: float(x['arrived']))
 
 callsign_id_arrivals = [(flight.get('callsign'), flight.get(
     'id'), flight.get('arrived')) for flight in sorted_arrivals]
@@ -100,7 +100,7 @@ for i, data in enumerate(callsign_id_arrivals[:-1]):
             print(
                 f"{callsign} {id_} landed, the next plane is {callsign_id_arrivals[i+1][0]} {callsign_id_arrivals[i+1][1]}")
             print(
-                f"The trailing plane between at {lat1}, {lng1} and {lat2}, {lng2}")
+                f"The trailing plane at {lat},{lng}, with spacing of {haversine(lat, lng, threshold[0], threshold[1])}")
             break
 
 
