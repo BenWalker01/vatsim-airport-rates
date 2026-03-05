@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VATSIM Airport Rates</title>
+    <link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>VATSIM Airport Rates</h1>
+            <p class="subtitle">Arrival and departure rate tracking</p>
+        </header>
+
+        <main>
+            <section class="controls">
+                <div class="input-group">
+                    <label for="airport-input">Track Airport (ICAO):</label>
+                    <input type="text" id="airport-input" placeholder="e.g., EGSS" maxlength="4">
+                    <button id="add-airport-btn">Add</button>
+                </div>
+            </section>
+
+            <section class="airports">
+                <h2>Tracked Airports</h2>
+                <div id="airports-list" class="airports-grid">
+                    <p class="empty-state">No airports being tracked. Add one to get started.</p>
+                </div>
+            </section>
+
+            <section class="info">
+                <h2>About</h2>
+                <p>This tool monitors real-time pilot data from VATSIM to measure arrival and departure rates at selected airports.</p>
+                <ul>
+                    <li>Tracks pilots within airport boundaries</li>
+                    <li>Calculates rolling arrival/departure rates</li>
+                    <li>Exports data for analysis</li>
+                </ul>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 VATSIM Airport Rates</p>
+        </footer>
+    </div>
+
+    <template id="airport-card-template">
+        <div class="airport-card">
+            <div class="airport-header">
+                <h3 class="airport-icao"></h3>
+                <button class="remove-btn" aria-label="Remove airport">x</button>
+            </div>
+            <div class="airport-stats">
+                <div class="stat">
+                    <span class="label">Departures/15min:</span>
+                    <span class="value dep-rate">—</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Arrivals/15min:</span>
+                    <span class="value arr-rate">—</span>
+                </div>
+                <div class="stat">
+                    <span class="label">On Ground:</span>
+                    <span class="value on-ground">—</span>
+                </div>
+                <div class="stat">
+                    <span class="label">On Approach:</span>
+                    <span class="value on-approach">—</span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script type="module">
+        const wasm = await import('./docs/wasm.js');
+        const memory = wasm.memory;
+        window.__WASM_MEMORY__ = memory;
+    </script>
+    <script src="bundle.js"></script>
+</body>
+</html>
