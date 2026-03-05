@@ -73,10 +73,17 @@
     </template>
 
     <script type="module">
-        const wasm = await import('./docs/wasm.js');
-        const memory = wasm.memory;
-        window.__WASM_MEMORY__ = memory;
+        import init, * as wasm from './static/wasm_test.js';
+        
+        async function run() {
+            await init();
+            window.__WASM__ = wasm;
+        }
+        
+        run().catch(err => {
+            console.error('Failed to initialize WASM:', err);
+        });
     </script>
-    <script src="bundle.js"></script>
+    <script src="static/app.js"></script>
 </body>
 </html>

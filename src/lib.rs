@@ -1,29 +1,23 @@
+mod models;
+mod maths;
+mod airport;
+mod state;
+mod api;
+
 use std::panic;
 use console_error_panic_hook;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::closure::Closure;
 
 #[wasm_bindgen(start)]
 pub fn init() {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
 }
 
-#[wasm_bindgen]
-pub fn create_button() -> Result<(), JsValue> {
-    let window = web_sys::window().unwrap();
-    let document = window.document().unwrap();
-    let body = document.body().unwrap();
+// Re-export public API functions for convenience
+pub use api::{
+    fetch_vatsim_data, add_airport, remove_airport, process_pilots_json,
+    get_available_airports, get_active_airports,
+};
 
-    let button = document.create_element("button")?;
-    button.set_text_content(Some("Click Me!"));
-    
-    let closure = Closure::<dyn Fn()>::new(|| {
-        web_sys::console::log_1(&"Button clicked!".into());
-    });
-    
-    button.add_event_listener_with_callback("click", closure.as_ref().unchecked_ref())?;
-    closure.forget(); // Proper memory management
-    
-    body.append_child(&button)?;
-    Ok(())
-}
+pub use models::{Pilot, FlightPlan, AirportStats, AirportBoundary};
+pub use airport::AirportTracker;
