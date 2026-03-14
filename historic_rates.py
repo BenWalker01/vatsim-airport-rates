@@ -1,6 +1,16 @@
 import requests
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
+from datetime import datetime as dt
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+API_KEY = os.getenv('API_KEY')
+if not API_KEY:
+    print("Error: API_KEY not found in .env file")
+    exit(1)
 
 # Configuration variables
 OUTPUT_FILE = "hist_rates.csv"
@@ -9,6 +19,14 @@ DEFAULT_START_DATE = datetime.now().strftime("%Y-%m-%d")
 DEFAULT_START_TIME = "00:00"
 DEFAULT_END_DATE = datetime.now().strftime("%Y-%m-%d")
 DEFAULT_END_TIME = datetime.now().strftime("%H:%M")
+
+# API Configuration
+API_BASE_URL_ARRIVALS = "https://api.statsim.net/api/Flights/IcaoDestination"
+API_BASE_URL_DEPARTURES = "https://api.statsim.net/api/Flights/IcaoOrigin"
+HEADERS = {
+    "X-API-Key": API_KEY,
+    "Accept": "application/json"
+}
 
 # Parse command line arguments if provided
 parser = argparse.ArgumentParser(
@@ -27,71 +45,153 @@ parser.add_argument('--output', type=str, default=OUTPUT_FILE,
                     help='Output CSV file name')
 args = parser.parse_args()
 
-# Initialize output file
-with open(args.output, "w")as f:
-    f.write(f"0,\n0,\n0,\n0,\n0,")
+# Initialize lists to store data
+timestamps = []
+dep_rates = []
+hour_dep_rates = []
+arr_rates = []
+hour_arr_rates = []
 
-# Set up request parameters
-airport = args.airport
-start_time = f"{args.start_date}+{args.start_time.replace(':', '%3A')}"
-end_time = f"{args.end_date}+{args.end_time.replace(':', '%3A')}"
+airport = args.airport.upper()
+start_datetime = f"{args.start_date}T{args.start_time}:00Z"
+end_datetime = f"{args.end_date}T{args.end_time}:00Z"
 
-url = f"https://statsim.net/flights/airport/?icao={airport}&period=custom&from={start_time}&to={end_time}&json=true"
-print(url)
-# Get data from statsim.net
-response = requests.get(url)
+# Build API query
+params = {
+    "icao": airport,
+    "from": start_datetime,
+    "to": end_datetime
+}
 
+print(f"Fetching data for {airport} from {start_datetime} to {end_datetime}")
 
-deps = sorted([plane['departed'] for plane in response.json().get('departed')])
-arrs = sorted([plane['arrived'] for plane in response.json().get('arrived')])
+print("Fetching arrival data...")
+arrival_response = requests.get(API_BASE_URL_ARRIVALS, params=params, headers=HEADERS)
 
-# Configuration for time intervals
-HOUR_WINDOW = 60 * 60  # 1 hour in seconds
-ROLLING_WINDOW = 15 * 60  # 15 minutes in seconds
-TIME_INCREMENT = 15  # Time increment in minutes
-
-timespan = max(deps[-1] - deps[0], arrs[-1] - arrs[0]) if deps and arrs else 0
-if not timespan:
-    print("No flights found in the specified time range")
+if arrival_response.status_code == 401:
+    print("Error: Unauthorized - API key may be invalid")
+    exit(1)
+elif arrival_response.status_code == 400:
+    print("Error: Bad Request - Check your parameters")
+    print(f"Request URL: {arrival_response.url}")
+    print(f"Response body: {arrival_response.text}")
+    exit(1)
+elif arrival_response.status_code != 200:
+    print(f"Error: API returned status code {arrival_response.status_code}")
+    print(f"Response: {arrival_response.text}")
     exit(1)
 
-current_time = deps[0] if deps else 0
-hour_dep_rate = set()
-hour_arr_rate = set()
-rolling_dep_rate = set()
-rolling_arr_rate = set()
-for i in range(timespan//TIME_INCREMENT + 1):
-    if deps and deps[0] <= current_time:  # plane has departed
-        hour_dep_rate.add(deps[0])
-        rolling_dep_rate.add(deps[0])
-        deps.pop(0)
+if not arrival_response.text or arrival_response.text.strip() == "":
+    print("Error: API returned an empty response")
+    exit(1)
 
-    if arrs and arrs[0] <= current_time:
-        hour_arr_rate.add(arrs[0])
-        rolling_arr_rate.add(arrs[0])
-        arrs.pop(0)
+try:
+    arrival_data = arrival_response.json()
+except requests.exceptions.JSONDecodeError as e:
+    print(f"Error: Failed to parse JSON response: {e}")
+    print(f"Status Code: {arrival_response.status_code}")
+    print(f"Response text (first 1000 chars):\n{arrival_response.text[:1000]}")
+    exit(1)
 
-    hour_dep_rate = {
-        tot for tot in hour_dep_rate if current_time - tot < HOUR_WINDOW}
-    rolling_dep_rate = {
-        tot for tot in rolling_dep_rate if current_time - tot < ROLLING_WINDOW}
+print(f"API returned {len(arrival_data)} flights arriving at {airport}")
 
-    hour_arr_rate = {
-        tot for tot in hour_arr_rate if current_time - tot < HOUR_WINDOW}
-    rolling_arr_rate = {
-        tot for tot in rolling_arr_rate if current_time - tot < ROLLING_WINDOW}
+print("Fetching departure data...")
+departure_response = requests.get(API_BASE_URL_DEPARTURES, params=params, headers=HEADERS)
 
-    current_time += 15
+if departure_response.status_code != 200:
+    print(f"Error: Departure data fetch failed with status code {departure_response.status_code}")
+    departure_data = []
+else:
+    try:
+        departure_data = departure_response.json()
+    except requests.exceptions.JSONDecodeError:
+        print("Warning: Failed to parse departure data, continuing with empty departures")
+        departure_data = []
 
-    with open(args.output, "r")as f:
-        timestamps, dep_rates, hour_dep_rates, arr_rates, hour_arr_rates = f.read().splitlines()
-    timestamps += f"{current_time},"
-    dep_rates += f"{len(rolling_dep_rate)*4},"
-    hour_dep_rates += f"{len(hour_dep_rate)},"
-    arr_rates += f"{len(rolling_arr_rate)*4},"
-    hour_arr_rates += f"{len(hour_arr_rate)},"
+print(f"API returned {len(departure_data)} flights departing from {airport}")
 
-    lines = f"{timestamps}\n{dep_rates}\n{hour_dep_rates}\n{arr_rates}\n{hour_arr_rates}"
+import json
+with open("api_response.json", "w") as f:
+    json.dump({"arrivals": arrival_data, "departures": departure_data}, f, indent=2)
+print(f"JSON responses saved to api_response.json")
 
-    with open(args.output, "w")as f:
-        f.write(lines)
+def extract_timestamps_from_flights(flights, use_field='arrived'):
+    """Extract and sort timestamps from flight data"""
+    timestamps = []
+    for flight in flights:
+        if isinstance(flight, dict):
+            ts = flight.get(use_field)
+            if ts:
+                try:
+                    # Parse ISO format timestamp
+                    dt_obj = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                    timestamps.append(int(dt_obj.timestamp()))
+                except (ValueError, AttributeError, TypeError):
+                    pass
+    return sorted(list(set(timestamps)))
+
+arrival_timestamps = extract_timestamps_from_flights(arrival_data, use_field='arrived')
+departure_timestamps = extract_timestamps_from_flights(departure_data, use_field='departed')
+all_timestamps = sorted(list(set(arrival_timestamps + departure_timestamps)))
+
+if not all_timestamps:
+    print("Error: Could not extract any valid timestamps from flight data")
+    exit(1)
+
+print(f"Found {len(all_timestamps)} unique timestamps")
+
+def calculate_rates(flights, timestamps, use_field='arrived'):
+    """Calculate rolling 15-min and hourly rates for flights"""
+    rolling_15min = []  # Rate per hour, calculated from 15-min windows
+    hourly = []  # Actual hourly rate
+    
+    def get_flight_timestamp(flight):
+        """Extract timestamp from flight object"""
+        ts = flight.get(use_field)
+        if ts:
+            try:
+                dt_obj = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                return int(dt_obj.timestamp())
+            except (ValueError, AttributeError, TypeError):
+                return None
+        return None
+    
+    for ts in timestamps:
+        window_start = ts - 900
+        count_15min = sum(1 for flight in flights
+                         if isinstance(flight, dict)
+                         and (flight_ts := get_flight_timestamp(flight))
+                         and window_start <= flight_ts <= ts)
+        rolling_15min.append(int(count_15min * 4))
+        
+        window_start_hour = ts - 3600
+        count_1hour = sum(1 for flight in flights
+                         if isinstance(flight, dict)
+                         and (flight_ts := get_flight_timestamp(flight))
+                         and window_start_hour <= flight_ts <= ts)
+        hourly.append(count_1hour)
+    
+    return rolling_15min, hourly
+
+arrival_rolling_15min, arrival_hourly = calculate_rates(arrival_data, all_timestamps, use_field='arrived')
+departure_rolling_15min, departure_hourly = calculate_rates(departure_data, all_timestamps, use_field='departed')
+
+output_file = args.output
+with open(output_file, 'w') as f:
+    ts_row = "timestamps," + ",".join(str(ts) for ts in all_timestamps)
+    f.write(ts_row + "\n")
+    
+    dep_rolling_row = "rolling_departure_rates," + ",".join(str(rate) for rate in departure_rolling_15min)
+    f.write(dep_rolling_row + "\n")
+    
+    dep_actual_row = "actual_departure_rates," + ",".join(str(rate) for rate in departure_hourly)
+    f.write(dep_actual_row + "\n")
+    
+    arr_rolling_row = "rolling_arrival_rates," + ",".join(str(rate) for rate in arrival_rolling_15min)
+    f.write(arr_rolling_row + "\n")
+    
+    arr_actual_row = "actual_arrival_rates," + ",".join(str(rate) for rate in arrival_hourly)
+    f.write(arr_actual_row + "\n")
+
+print(f"Data exported to {output_file}")
+
