@@ -20,6 +20,6 @@ pub fn get_app_state() -> &'static Mutex<AppState> {
 }
 
 fn load_boundaries() -> HashMap<String, AirportBoundary> {
-    let boundaries_json = include_str!("../static/boundaries.json");
+    let boundaries_json = include_str!("../_data/boundingBoxes.json");
     serde_json::from_str(boundaries_json).unwrap_or_default()
 }

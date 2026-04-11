@@ -4,5 +4,4 @@ venv/
 *.log
 *.txt
 
-static/
 target/

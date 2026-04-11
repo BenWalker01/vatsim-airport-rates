@@ -18,9 +18,11 @@ jobs:
           
       - run: cargo install wasm-pack
       
-      - run: | 
-            wasm-pack build --release --target web --out-name wasm --out-dir ./docs
-            cp index.html styles.css ./docs/
+      - run: |
+            wasm-pack build --release --target web --out-name wasm --out-dir ./docs/pkg
+            cp index.html app.js ./docs/
+            cp static/styles.css ./docs/static/ -r 2>/dev/null || mkdir -p ./docs/static && cp static/styles.css ./docs/static/
+            cp _data/boundingBoxes.json ./docs/
       
       - uses: peaceiris/actions-gh-pages@v3
         with:
