@@ -1,0 +1,57 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  background: #101719;
+  color: #e8edeb;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+.page { max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.25rem 3rem; }
+.site-header { align-items: end; border-bottom: 1px solid #334044; display: flex; justify-content: space-between; padding-bottom: 1.4rem; }
+.brand { align-items: center; display: flex; gap: .8rem; }
+.brand-mark { align-items: center; background: #e6a93c; color: #172022; display: flex; font-size: .75rem; font-weight: 800; height: 2.5rem; justify-content: center; letter-spacing: .08em; width: 2.5rem; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 1.75rem; font-weight: 650; letter-spacing: -.035em; }
+h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -.02em; margin-top: .2rem; }
+.eyebrow { color: #9dacaa; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.site-note, footer { color: #97a3a1; font-size: .8rem; }
+.panel { background: #192225; border: 1px solid #344044; border-top: 3px solid #516266; margin-top: 1.5rem; padding: 1.25rem; }
+.live-panel { border-top-color: #e6a93c; }
+.panel-titlebar { align-items: start; display: flex; gap: 1rem; justify-content: space-between; }
+.panel-titlebar [role="status"] { color: #a8b3b1; font-size: .82rem; margin-top: .55rem; }
+.live-indicator { background: #65b58c; border-radius: 50%; display: inline-block; height: .5rem; margin-right: .45rem; vertical-align: baseline; width: .5rem; }
+.airport-control { min-width: 180px; }
+label { color: #aeb9b7; display: grid; font-size: .72rem; font-weight: 700; gap: .38rem; letter-spacing: .07em; text-transform: uppercase; }
+select, input, button { border-radius: 0; font: inherit; min-height: 2.55rem; padding: .55rem .7rem; }
+select, input { background: #11191b; border: 1px solid #435054; color: #e8edeb; }
+select:focus, input:focus { border-color: #e6a93c; outline: 2px solid #e6a93c55; }
+button { align-self: end; background: #e6a93c; border: 1px solid #f4c968; color: #172022; cursor: pointer; font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+button:hover { background: #f1bd57; }
+button:disabled { cursor: not-allowed; opacity: .6; }
+.metrics { border-bottom: 1px solid #344044; border-top: 1px solid #344044; display: grid; grid-template-columns: repeat(4, 1fr); margin: 1.4rem 0; }
+.metric { border-right: 1px solid #344044; padding: .8rem 1rem .9rem; position: relative; }
+.metric:first-child { padding-left: 0; }
+.metric:last-child { border-right: 0; }
+.metric::before { background: #75b8b5; content: ""; display: block; height: 3px; margin-bottom: .65rem; width: 1.6rem; }
+.metric-arrivals::before { background: #e6a93c; }
+.metric span, .metric small { color: #acb7b5; display: block; font-size: .74rem; }
+.metric strong { display: inline-block; font-family: "Roboto Mono", "SFMono-Regular", Consolas, monospace; font-size: 2.2rem; font-weight: 500; letter-spacing: -.08em; line-height: 1.1; margin: .25rem 0; }
+.chart-frame { background: #11191b; border: 1px solid #2d393c; padding: .75rem; }
+.chart-heading { color: #9facaa; display: flex; font-size: .68rem; font-weight: 700; justify-content: space-between; letter-spacing: .08em; padding: .05rem .25rem .7rem; text-transform: uppercase; }
+canvas { display: block; height: auto; max-width: 100%; width: 100%; }
+.hint { color: #97a3a1; font-size: .76rem; margin-top: .75rem; }
+form { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr auto; gap: .75rem; margin: 1.2rem 0; }
+footer { border-top: 1px solid #334044; margin-top: 1.5rem; padding-top: 1rem; }
+
+@media (max-width: 700px) {
+  .page { padding: 1.25rem .8rem 2rem; }
+  .site-header, .panel-titlebar, form { align-items: stretch; display: grid; }
+  .site-note { margin-top: .8rem; }
+  .airport-control { min-width: 0; margin-top: .5rem; }
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .metric:nth-child(2) { border-right: 0; }
+  .metric:nth-child(n + 3) { border-top: 1px solid #344044; }
+  .metric:nth-child(3) { padding-left: 0; }
+  .chart-heading { font-size: .58rem; }
+}

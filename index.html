@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Live and historic VATSIM airport movement rates." />
+    <title>VATSIM Airport Rates</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="site-header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">VR</span>
+          <div>
+            <p class="eyebrow">VATSIM UK · Operations tool</p>
+            <h1>Airport rates</h1>
+          </div>
+        </div>
+        <p class="site-note">Live IFR movement monitoring and historical rate analysis.</p>
+      </header>
+
+      <section class="panel live-panel" aria-labelledby="live-heading">
+        <div class="panel-titlebar">
+          <div>
+            <p class="eyebrow"><span class="live-indicator" aria-hidden="true"></span>Live monitoring</p>
+            <h2 id="live-heading">Movement rate</h2>
+            <p id="live-status" role="status">Choose an airport to begin tracking.</p>
+          </div>
+          <div class="airport-control">
+            <label for="airport-select">Display airport</label>
+            <select id="airport-select" disabled>
+              <option>Loading airports...</option>
+            </select>
+          </div>
+        </div>
+        <div class="metrics" aria-live="polite">
+          <article class="metric metric-departures"><span>Departures</span><strong id="rolling-departures">0</strong><small>15-minute rate / hour</small></article>
+          <article class="metric metric-departures"><span>Departures</span><strong id="hourly-departures">0</strong><small>movements in last hour</small></article>
+          <article class="metric metric-arrivals"><span>Arrivals</span><strong id="rolling-arrivals">0</strong><small>15-minute rate / hour</small></article>
+          <article class="metric metric-arrivals"><span>Arrivals</span><strong id="hourly-arrivals">0</strong><small>movements in last hour</small></article>
+        </div>
+        <div class="chart-frame">
+          <div class="chart-heading"><span>Rate trend</span><span>Movements per hour</span></div>
+          <canvas id="live-chart" width="960" height="340" aria-label="Live movement rate chart"></canvas>
+        </div>
+        <p class="hint">All configured airports continue tracking while this page is open. Six hours of chart history is kept in this browser.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="historic-heading">
+        <div class="panel-titlebar">
+          <div>
+            <p class="eyebrow">Data review</p>
+            <h2 id="historic-heading">Historic rates</h2>
+            <p id="historic-status" role="status">Configure a Worker URL to enable historic queries.</p>
+          </div>
+        </div>
+        <form id="historic-form">
+          <label>Airport <input id="historic-airport" name="icao" maxlength="4" pattern="[A-Za-z]{4}" required placeholder="EGKK" /></label>
+          <label>From <input name="from" type="datetime-local" required /></label>
+          <label>To <input name="to" type="datetime-local" required /></label>
+          <button type="submit">Get historic rates</button>
+        </form>
+        <div class="chart-frame">
+          <div class="chart-heading"><span>Historic rate trend</span><span>Movements per hour</span></div>
+          <canvas id="historic-chart" width="960" height="340" aria-label="Historic movement rate chart"></canvas>
+        </div>
+      </section>
+      <footer>Rate estimates use a 15-minute rolling window; actual counts use the trailing hour.</footer>
+    </main>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
