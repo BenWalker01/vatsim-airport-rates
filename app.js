@@ -10,9 +10,17 @@ const state = {
   airports: {},
   trackers: {},
   timer: null,
+  filters: { departures: true, arrivals: true, total: true },
+  liveSamples: [],
+  historicSamples: [],
 };
 
 const select = document.querySelector("#airport-select");
+const filterCheckboxes = {
+  departures: document.querySelector("#filter-departures"),
+  arrivals: document.querySelector("#filter-arrivals"),
+  total: document.querySelector("#filter-total"),
+};
 const status = document.querySelector("#live-status");
 const historicStatus = document.querySelector("#historic-status");
 const metricElements = {
@@ -113,26 +121,54 @@ function restore() {
   return true;
 }
 
-function drawChart(canvas, samples) {
+const CHART_SERIES = [
+  {
+    key: "rollingDepartures", group: "departures", colour: "#5ecfca", label: "15 min departures", width: 2.5, dash: [],
+    value: (sample) => sample.rollingDepartures,
+  },
+  {
+    key: "hourlyDepartures", group: "departures", colour: "#2f7d7a", label: "Hourly departures", width: 2, dash: [7, 4],
+    value: (sample) => sample.hourlyDepartures,
+  },
+  {
+    key: "rollingArrivals", group: "arrivals", colour: "#f2b84f", label: "15 min arrivals", width: 2.5, dash: [],
+    value: (sample) => sample.rollingArrivals,
+  },
+  {
+    key: "hourlyArrivals", group: "arrivals", colour: "#b87527", label: "Hourly arrivals", width: 2, dash: [7, 4],
+    value: (sample) => sample.hourlyArrivals,
+  },
+  {
+    key: "totalUtilisation", group: "total", colour: "#ef476f", label: "Total runway utilisation", width: 3, dash: [],
+    value: (sample) => sample.rollingDepartures + sample.rollingArrivals,
+  },
+];
+
+function drawChart(canvas, samples, filters = state.filters) {
   const context = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#11191b";
   context.fillRect(0, 0, width, height);
+  const activeSeries = CHART_SERIES.filter((series) => filters[series.group]);
   if (samples.length < 2) {
     context.fillStyle = "#9facaa";
     context.font = "16px system-ui";
     context.fillText("Rate data will appear after two updates.", 24, 40);
     return;
   }
+  if (activeSeries.length === 0) {
+    context.fillStyle = "#9facaa";
+    context.font = "16px system-ui";
+    context.fillText("No series selected. Use the toggles above to show a line.", 24, 40);
+    return;
+  }
 
   const padding = { top: 25, right: 25, bottom: 55, left: 45 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
-  const maxRate = Math.max(1, ...samples.flatMap((sample) => [
-    sample.rollingDepartures, sample.hourlyDepartures, sample.rollingArrivals, sample.hourlyArrivals,
-  ]));
+  const maxRate = Math.max(1, ...samples.flatMap((sample) => activeSeries.map((series) => series.value(sample))));
   context.strokeStyle = "#344044";
   context.fillStyle = "#9facaa";
   context.font = "13px system-ui";
@@ -153,26 +189,28 @@ function drawChart(canvas, samples) {
     context.fillText(label, x, height - 30);
   }
   context.textAlign = "start";
-  const series = [
-    ["rollingDepartures", "#75b8b5", "15 min departures"],
-    ["hourlyDepartures", "#3c8683", "Hourly departures"],
-    ["rollingArrivals", "#e6a93c", "15 min arrivals"],
-    ["hourlyArrivals", "#b87527", "Hourly arrivals"],
-  ];
-  series.forEach(([key, colour, label], index) => {
-    context.strokeStyle = colour;
-    context.lineWidth = 2;
+  activeSeries.forEach((series, index) => {
+    context.strokeStyle = series.colour;
+    context.lineWidth = series.width;
+    context.lineJoin = "round";
+    context.setLineDash(series.dash);
     context.beginPath();
     samples.forEach((sample, sampleIndex) => {
       const x = padding.left + (sampleIndex * plotWidth) / (samples.length - 1);
-      const y = padding.top + plotHeight - (sample[key] / maxRate) * plotHeight;
+      const y = padding.top + plotHeight - (series.value(sample) / maxRate) * plotHeight;
       if (sampleIndex === 0) context.moveTo(x, y); else context.lineTo(x, y);
     });
     context.stroke();
-    context.fillStyle = colour;
+    context.setLineDash([]);
+    context.fillStyle = series.colour;
     context.fillRect(padding.left + index * 205, height - 17, 12, 3);
-    context.fillText(label, padding.left + 18 + index * 205, height - 12);
+    context.fillText(series.label, padding.left + 18 + index * 205, height - 12);
   });
+}
+
+function redrawCharts() {
+  drawChart(document.querySelector("#live-chart"), state.liveSamples);
+  drawChart(document.querySelector("#historic-chart"), state.historicSamples);
 }
 
 function processAirport(icao, pilots, connectedCallsigns, now) {
@@ -207,14 +245,16 @@ function showAirport(icao) {
   state.airport = icao;
   if (!icao) {
     updateMetrics({ rollingDepartures: 0, hourlyDepartures: 0, rollingArrivals: 0, hourlyArrivals: 0 });
-    drawChart(document.querySelector("#live-chart"), []);
+    state.liveSamples = [];
+    drawChart(document.querySelector("#live-chart"), state.liveSamples);
     status.textContent = `Tracking all ${Object.keys(state.trackers).length} airports in the background. Choose one to view its rates.`;
     return;
   }
   const tracker = state.trackers[icao];
   const rates = calculateRates(tracker, Date.now());
   updateMetrics(rates);
-  drawChart(document.querySelector("#live-chart"), tracker.samples);
+  state.liveSamples = tracker.samples;
+  drawChart(document.querySelector("#live-chart"), state.liveSamples);
   status.textContent = `Showing ${icao}; all ${Object.keys(state.trackers).length} airports continue tracking in the background.`;
 }
 
@@ -235,7 +275,8 @@ async function poll() {
     if (state.airport) {
       const tracker = state.trackers[state.airport];
       updateMetrics(calculateRates(tracker, now));
-      drawChart(document.querySelector("#live-chart"), tracker.samples);
+      state.liveSamples = tracker.samples;
+      drawChart(document.querySelector("#live-chart"), state.liveSamples);
       status.textContent = `Showing ${state.airport}; all airports updated ${new Date(now).toLocaleTimeString()}.`;
     }
     persist();
@@ -302,7 +343,8 @@ document.querySelector("#historic-form").addEventListener("submit", async (event
     const response = await fetch(`${window.HISTORIC_API_URL}?${params}`);
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Historic query failed.");
-    drawChart(document.querySelector("#historic-chart"), result.samples);
+    state.historicSamples = result.samples;
+    drawChart(document.querySelector("#historic-chart"), state.historicSamples);
     historicStatus.textContent = `${result.samples.length} historic movement timestamps returned.`;
   } catch (error) {
     historicStatus.textContent = error.message;
@@ -314,5 +356,14 @@ document.querySelector("#historic-form").addEventListener("submit", async (event
 if (!window.HISTORIC_API_URL) {
   historicStatus.textContent = "Historic queries are disabled until a Worker URL is configured.";
 }
-drawChart(document.querySelector("#historic-chart"), []);
+
+Object.entries(filterCheckboxes).forEach(([group, checkbox]) => {
+  if (!checkbox) return;
+  checkbox.addEventListener("change", () => {
+    state.filters[group] = checkbox.checked;
+    redrawCharts();
+  });
+});
+
+drawChart(document.querySelector("#historic-chart"), state.historicSamples);
 initialise();

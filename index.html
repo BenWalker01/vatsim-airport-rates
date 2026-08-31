@@ -20,6 +20,13 @@
         <p class="site-note">Live IFR movement monitoring and historical rate analysis.</p>
       </header>
 
+      <div class="chart-filters" role="group" aria-label="Toggle chart series">
+        <span class="chart-filters-label">Show</span>
+        <label class="chart-filter chart-filter-departures"><input type="checkbox" id="filter-departures" checked /> Departures</label>
+        <label class="chart-filter chart-filter-arrivals"><input type="checkbox" id="filter-arrivals" checked /> Arrivals</label>
+        <label class="chart-filter chart-filter-total"><input type="checkbox" id="filter-total" checked /> Total runway utilisation</label>
+      </div>
+
       <section class="panel live-panel" aria-labelledby="live-heading">
         <div class="panel-titlebar">
           <div>
