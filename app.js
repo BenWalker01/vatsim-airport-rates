@@ -10,17 +10,13 @@ const state = {
   airports: {},
   trackers: {},
   timer: null,
-  filters: { departures: true, arrivals: true, total: true },
+  liveFilters: { departures: true, arrivals: true, total: true },
+  historicFilters: { departures: true, arrivals: true, total: true },
   liveSamples: [],
   historicSamples: [],
 };
 
 const select = document.querySelector("#airport-select");
-const filterCheckboxes = {
-  departures: document.querySelector("#filter-departures"),
-  arrivals: document.querySelector("#filter-arrivals"),
-  total: document.querySelector("#filter-total"),
-};
 const status = document.querySelector("#live-status");
 const historicStatus = document.querySelector("#historic-status");
 const metricElements = {
@@ -139,12 +135,16 @@ const CHART_SERIES = [
     value: (sample) => sample.hourlyArrivals,
   },
   {
-    key: "totalUtilisation", group: "total", colour: "#ef476f", label: "Total runway utilisation", width: 3, dash: [],
+    key: "rollingTotalUtilisation", group: "total", colour: "#ef476f", label: "15 min runway utilisation", width: 3, dash: [],
     value: (sample) => sample.rollingDepartures + sample.rollingArrivals,
+  },
+  {
+    key: "hourlyTotalUtilisation", group: "total", colour: "#a12f49", label: "Hourly runway utilisation", width: 2, dash: [7, 4],
+    value: (sample) => sample.hourlyDepartures + sample.hourlyArrivals,
   },
 ];
 
-function drawChart(canvas, samples, filters = state.filters) {
+function drawChart(canvas, samples, filters) {
   const context = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
@@ -208,9 +208,12 @@ function drawChart(canvas, samples, filters = state.filters) {
   });
 }
 
-function redrawCharts() {
-  drawChart(document.querySelector("#live-chart"), state.liveSamples);
-  drawChart(document.querySelector("#historic-chart"), state.historicSamples);
+function drawLiveChart() {
+  drawChart(document.querySelector("#live-chart"), state.liveSamples, state.liveFilters);
+}
+
+function drawHistoricChart() {
+  drawChart(document.querySelector("#historic-chart"), state.historicSamples, state.historicFilters);
 }
 
 function processAirport(icao, pilots, connectedCallsigns, now) {
@@ -246,7 +249,7 @@ function showAirport(icao) {
   if (!icao) {
     updateMetrics({ rollingDepartures: 0, hourlyDepartures: 0, rollingArrivals: 0, hourlyArrivals: 0 });
     state.liveSamples = [];
-    drawChart(document.querySelector("#live-chart"), state.liveSamples);
+    drawLiveChart();
     status.textContent = `Tracking all ${Object.keys(state.trackers).length} airports in the background. Choose one to view its rates.`;
     return;
   }
@@ -254,7 +257,7 @@ function showAirport(icao) {
   const rates = calculateRates(tracker, Date.now());
   updateMetrics(rates);
   state.liveSamples = tracker.samples;
-  drawChart(document.querySelector("#live-chart"), state.liveSamples);
+  drawLiveChart();
   status.textContent = `Showing ${icao}; all ${Object.keys(state.trackers).length} airports continue tracking in the background.`;
 }
 
@@ -276,7 +279,7 @@ async function poll() {
       const tracker = state.trackers[state.airport];
       updateMetrics(calculateRates(tracker, now));
       state.liveSamples = tracker.samples;
-      drawChart(document.querySelector("#live-chart"), state.liveSamples);
+      drawLiveChart();
       status.textContent = `Showing ${state.airport}; all airports updated ${new Date(now).toLocaleTimeString()}.`;
     }
     persist();
@@ -344,7 +347,7 @@ document.querySelector("#historic-form").addEventListener("submit", async (event
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Historic query failed.");
     state.historicSamples = result.samples;
-    drawChart(document.querySelector("#historic-chart"), state.historicSamples);
+    drawHistoricChart();
     historicStatus.textContent = `${result.samples.length} historic movement timestamps returned.`;
   } catch (error) {
     historicStatus.textContent = error.message;
@@ -357,13 +360,20 @@ if (!window.HISTORIC_API_URL) {
   historicStatus.textContent = "Historic queries are disabled until a Worker URL is configured.";
 }
 
-Object.entries(filterCheckboxes).forEach(([group, checkbox]) => {
-  if (!checkbox) return;
-  checkbox.addEventListener("change", () => {
-    state.filters[group] = checkbox.checked;
-    redrawCharts();
+function wireFilterBar(prefix, filters, redraw) {
+  ["departures", "arrivals", "total"].forEach((group) => {
+    const checkbox = document.querySelector(`#${prefix}-filter-${group}`);
+    if (!checkbox) return;
+    checkbox.checked = filters[group];
+    checkbox.addEventListener("change", () => {
+      filters[group] = checkbox.checked;
+      redraw();
+    });
   });
-});
+}
 
-drawChart(document.querySelector("#historic-chart"), state.historicSamples);
+wireFilterBar("live", state.liveFilters, drawLiveChart);
+wireFilterBar("historic", state.historicFilters, drawHistoricChart);
+
+drawHistoricChart();
 initialise();
