@@ -1,0 +1,7 @@
+name = "vatsim-airport-rates-historic"
+main = "src/index.js"
+compatibility_date = "2026-08-30"
+
+[vars]
+# Must be the exact origin (scheme + host, no path) that serves this app.
+ALLOWED_ORIGIN = "https://ben-walker.uk"
